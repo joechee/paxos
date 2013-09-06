@@ -7,7 +7,20 @@ var delay = true;
     return Math.floor(Math.random() * max);
   };
   
+  
+  function s4() {
+    return Math.floor((1 + Math.random()) * 0x10000)
+               .toString(16)
+               .substring(1);
+  }
+  
+  function guid() {
+    return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
+           s4() + '-' + s4() + s4() + s4();
+  }
+  
   window.randomInteger = randomInteger;
+  window.guid = guid;
 })(window);
 
 (function (window) {
@@ -38,7 +51,7 @@ var delay = true;
       
       
       
-      this.id = "node" + Math.random(); //TODO: Insert GUID function
+      this.id = "node" + guid(); //TODO: Insert GUID function
       this.network = network;
       this.type = "node";
       this.message = function (node, message) {
@@ -415,7 +428,7 @@ var delay = true;
   };
 
   var Network = function () {
-      this.id = "network-" + Math.random();
+      this.id = "network-" + guid();
       this.name = this.id;
       var nodes = {};
       this.register = function (node) {

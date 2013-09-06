@@ -23,6 +23,16 @@ var NetworkNode = function (network) {
     
     /* Private variables */
     var maxProposal = 0;
+
+    
+
+    this.getMaxOpID = function () {
+      var max = 0;
+      for (var i in this.oplog) {
+        (i > max) ? max = i : max = max;
+      }
+      return max;
+    };
     
     
     
@@ -31,68 +41,65 @@ var NetworkNode = function (network) {
     this.network = network;
     this.type = "node";
     this.message = function (node, message) {
-        // TODO: Implement FIFO Channel
-        if (!node) {
-          this.log("I'm messaging no one!");
-          return;
-        };
-        if (delay) {
-            setTimeout(function () {
-                sendMessage(node, message);
-            }, 1);
-        } else {
-            sendMessage(node, message);
-        }
+      // TODO: Implement FIFO Channel
+      if (!node) {
+        this.log("I'm messaging no one!");
+        return;
+      };
+      if (delay) {
+          setTimeout(function () {
+              sendMessage(node, message);
+          }, 1);
+      } else {
+          sendMessage(node, message);
+      }
     };
     
     this.receiveMessage = function (from, message) {
-        dispatchMessage(from, message, currentNode);
+      dispatchMessage(from, message, currentNode);
     }
     
     var sendMessage = function (node, message) {
-        node.receiveMessage(currentNode, message);
+      node.receiveMessage(currentNode, message);
     };
     
     this.connect = function (network) {
-        this.log("Connecting to " + network.id);
-        if (network.register(this)) {
-            this.network = network;
-            this.log("Successfully connected to " + network.id);
-        } else {
-            this.log("Connection to " + network.id + " failed.");
-        }
+      this.log("Connecting to " + network.id);
+      if (network.register(this)) {
+          this.network = network;
+          this.log("Successfully connected to " + network.id);
+      } else {
+          this.log("Connection to " + network.id + " failed.");
+      }
     };
     
     this.broadcast = function (network, message) {
-        if (network) {
-            this.network.broadcast(this, message);
-        }
+      if (network) {
+        this.network.broadcast(this, message);
+      }
     };
     
     var leader = undefined;
     
     this.processHeartbeat = function (from, message) {
-        if (!visibleNodes[from.id]) {
-            this.log("Just saw a new node: " + from.id);
-        }
-        visibleNodes[from.id] = {
-            node: from,
-            lastSeen: new Date()
-        };
+      visibleNodes[from.id] = {
+        node: from,
+        lastSeen: new Date()
+      };
     };
     
     this.disconnect = function () {
-        if (this.network) {
-            network.removeNode(this);
-            this.log("Successfully disconnected from "+ network);
-        }
+      if (this.network) {
+        network.removeNode(this);
+        this.log("Successfully disconnected from "+ network);
+      }
     };
     
     
     var broadcastHeartbeat = function () {
-        currentNode.broadcast(currentNode.network, {
-            cmd: "heartbeat"
-        });
+      currentNode.broadcast(currentNode.network, {
+          cmd: "heartbeat"
+      });
     };
     
     setInterval(broadcastHeartbeat, 1000);
@@ -103,15 +110,15 @@ var NetworkNode = function (network) {
     };  
     
     var cleanUpNodes = function () {
-        var now = new Date();
-        for (var i in visibleNodes) {
-            if (i == "log" || i == this.id) {
-                continue;
-            } else if (now - visibleNodes[i].lastSeen > 5000) {
-                this.log(visibleNodes[i].node.id + " disconnected due to inactivity");
-                delete visibleNodes[i];
-            }
+      var now = new Date();
+      for (var i in visibleNodes) {
+        if (i == "log" || i == this.id) {
+            continue;
+        } else if (now - visibleNodes[i].lastSeen > 5000) {
+            this.log(visibleNodes[i].node.id + " disconnected due to inactivity");
+            delete visibleNodes[i];
         }
+      }
     };
     
     this.getLeader = function () {
@@ -139,45 +146,56 @@ var NetworkNode = function (network) {
     */
     
     var PAXOSState = 'notStarted';
-    var acceptProposalReplies = {};
+    var acceptBallotReplies = {};
     var acceptValueReplies = {};
     var value = 0;
     var promisedValue = undefined;
+
+    var currentOpID = undefined;
+    this.oplog = {};
     
     this.startPAXOS = function (v) {
       value = value || v;
       if (!this.isLeader()) {
         this.log("Error: Trying to start PAXOS when it is not the leader");
-      } else if (PAXOSState == 'waitingForProposalAcceptance') {
+      } else if (PAXOSState == 'preparePhase') {
         this.log("Error: Starting PAXOS twice is currently still not supported");
         return;
       } else {
         this.log("Starting PAXOS");
       }
+
+      var opID = this.getMaxOpID() + 1;
+
+      currentOpID = opID;
       
       maxProposal++; // Increase the max proposal seen
-      acceptProposalReplies = {};
+      acceptBallotReplies = {};
       
       this.broadcast(this.network, {
-          cmd: 'startPAXOS',
-          propose: maxProposal
+        id: opID, 
+        cmd: 'startPAXOS',
+        propose: maxProposal
       });
-      PAXOSState = 'waitingForProposalAcceptance';
+      PAXOSState = 'preparePhase';
     };
     
-    this.processPropose = function (from, message) {
+    this.processPrepare = function (from, message) {
       var proposeID = message['propose'];
+      var opID = message['id'];
       var accept = function (node) {
         this.message(node, {
-          cmd: 'acceptProposal',
+          id: opID,
+          cmd: 'acceptBallot',
           proposal: proposeID
         });
         maxProposal = proposeID;
+        currentOpID = message['id'];
       };
       
       var reject = function (node) {
         this.message(node, {
-          cmd: 'rejectProposal',
+          cmd: 'rejectBallot',
           proposal: proposeId,
           maxProposal: maxProposal,
           value: promisedValue
@@ -195,14 +213,23 @@ var NetworkNode = function (network) {
     };
     
     this.processAcceptanceRequest = function(from, request) {
-      var proposalID = request['propose'];
+      var proposalID = request['proposal'];
       var proposalValue = request['value'];
+      var opID = request['id'];
       var accept = function (node) {
         this.message(node, {
           cmd: 'acceptValue',
           proposal: proposalID,
           value: proposalValue
         });
+
+        this.oplog[opID] = {
+          id: opID,
+          proposal: proposalID,
+          value: proposalValue
+        };
+
+        currentOpID = undefined; //reset currentOpID so as to wait for new requests.
       };
       var reject = function (node) {
         this.message(node, {
@@ -212,7 +239,9 @@ var NetworkNode = function (network) {
         });
       };
 
-      if (this.getLeader() == this) {
+      if (this.oplog[opID] && this.oplog[opID]['proposal'] === proposalID && this.oplog[opID]['value'] === proposalValue) {
+        accept.call(this, from); // Accept if there was a previous operation
+      } else if (this.getLeader() == this) {
         this.log("I am the leader? Why is " + from.name +" proposing? I will REJECT the proposal");
         reject.call(this, from);
       } else if (proposalID < maxProposal) {  
@@ -240,22 +269,41 @@ var NetworkNode = function (network) {
               // TODO: Add code that allows multiple leaders
               from.log("ERROR: PAXOS was started from someone who wasn't a leader");
             } else {
-              currentNode.processPropose(from, message);
+              currentNode.processPrepare(from, message);
             }
             break;
-          case "acceptProposal":
-            if (PAXOSState != 'waitingForProposalAcceptance') {
+          case "acceptBallot":
+             if (currentOpID !== message['id']) {
+              currentNode.log("Received Ballot Acceptance for a stale Op ID!");
+              return;
+            } else if (PAXOSState != 'preparePhase') {
               currentNode.log("Received Proposal Acceptance when PAXOS not started!");
             } else {
-              acceptProposalReplies[from.id] = true;
+              acceptBallotReplies[from.id] = true;
             }
             checkProposePhaseCompleted();
             break;
-          case "rejectProposal":
-            acceptProposalReplies[from.id] = false;
+          case "rejectBallot":
+            if (currentOpID !== message['id']) {
+              currentNode.log("Received Ballot Rejection for a stale Op ID!");
+              return;
+            }
+            acceptBallotReplies[from.id] = false;
             checkProposePhaseCompleted();
             break;
           case "requestAcceptance":
+            var opID = message['id'];
+            if (currentNode.oplog[opID]) {
+              currentNode.log("Received Acceptance Request for an op that is already completed. Returning results.");
+              currentNode.message(from, {
+                id: opID,
+                proposal: currentNode.oplog[opID]['proposal'],
+                value: currentNode.oplog[opID]['value']
+              });
+            } else if (currentOpID !== message['id']) {
+              currentNode.log("Received Acceptance Request for an unknown Op ID!");
+              return;
+            }
             currentNode.processAcceptanceRequest(from, message);
             break;
           case "acceptValue":
@@ -272,7 +320,7 @@ var NetworkNode = function (network) {
     var checkProposePhaseCompleted = function () {
       var accepts = 0; // accepts should be positive after this function ends to ensure majority
       for (var i in visibleNodes) {
-        if (acceptProposalReplies[i] === true) {
+        if (acceptBallotReplies[i] === true) {
           accepts++;
         } else {
           accepts--;
@@ -281,10 +329,12 @@ var NetworkNode = function (network) {
       if (accepts > 0) { // Majority
         currentNode.log("Received Majority acceptance. Cleaning up Continuing to next phase");
         /* cleanup code */
-        acceptProposalReplies = {};
+        acceptBallotReplies = {};
         /* end cleanup code */
         currentNode.log("Sending Acceptance Requests...");
         currentNode.broadcast(currentNode.network, {
+          id: currentOpID,
+          proposal: maxProposal,
           cmd: "requestAcceptance",
           value: value
         });
@@ -292,7 +342,7 @@ var NetworkNode = function (network) {
       
       var rejects = 0;
       for (var i in visibleNodes) {
-        if (acceptProposalReplies[i] === false) {
+        if (acceptBallotReplies[i] === false) {
           rejects++;
         } else {
           rejects--;
@@ -301,7 +351,7 @@ var NetworkNode = function (network) {
       
       if (rejects > 0) {
         /* cleanup code */
-        acceptProposalReplies = {};
+        acceptBallotReplies = {};
         /* end cleanup code */
         PAXOSState = 'notStarted';
         currentNode.log("PAXOS attempt failed.");
@@ -322,8 +372,16 @@ var NetworkNode = function (network) {
       if (accepts > 0) { // Majority
         currentNode.log("Received Majority acceptance. Agreed on " + value);
         /* cleanup code */
+        currentNode.oplog[currentOpID] = {
+          id: currentOpID,
+          proposal: maxProposal,
+          value: value
+        };
+        value = undefined;
+        currentOpID = undefined;
         PAXOSState = 'notStarted';
         acceptValueReplies = {};
+
         /* end cleanup code */
       }
       

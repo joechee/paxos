@@ -62,19 +62,17 @@ var delay = true;
         };
         if (delay) {
             setTimeout(function () {
-                sendMessage(node, message);
+                currentNode.network.channel.push({
+                  from: currentNode,
+                  message: message,
+                  to: node
+                });
             }, 1);
-        } else {
-            sendMessage(node, message);
         }
       };
       
       this.receiveMessage = function (from, message) {
         dispatchMessage(from, message, currentNode);
-      }
-      
-      var sendMessage = function (node, message) {
-        node.receiveMessage(currentNode, message);
       };
       
       this.connect = function (network) {
@@ -430,7 +428,11 @@ var delay = true;
   var Network = function () {
       this.id = "network-" + guid();
       this.name = this.id;
+      var currentNetwork = this;
       var nodes = {};
+      
+      this.channel = [];
+      
       this.register = function (node) {
   		    nodes[node.id] = node;
           node.network = this;
@@ -458,6 +460,16 @@ var delay = true;
           }
           return leader;
       };
+      
+      
+      setInterval(function () {
+        for (var i in currentNetwork.channel) {
+          
+          var packet = currentNetwork.channel[i];
+          packet['to'].receiveMessage(packet['from'], packet['message']);
+        }
+        currentNetwork.channel.length = 0;
+      }, 100)
       
       
       

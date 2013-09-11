@@ -12,6 +12,10 @@ textarea {
   color: white;
 }
 
+.node-gui {
+  float:left;
+}
+
 body {
  padding: 0;
  margin: 0;

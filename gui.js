@@ -25,6 +25,30 @@ Dependencies:
   
   
   (function bottombarModule(window) {
+    /* Node module */
+    var $nodeGUI = function (node) {
+      if (!(node instanceof NetworkNode)) {
+        GLOBAL.log("Error in creating node GUI");
+      }
+      var $newNodeGUI = $('<div>');
+      $newNodeGUI.addClass('node-gui');
+
+      var disconnect = function () {
+        node.disconnect();
+        $newNodeGUI.remove();
+      };
+
+      var $disconnectButton = $('<button>');
+      $disconnectButton.click(disconnect).appendTo($newNodeGUI);
+      $disconnectButton.text("Disconnect " + node.id);
+
+
+      return $newNodeGUI;
+    }
+
+
+
+
     var $bottomBar = $('<div>');
     $bottomBar.addClass('bottom-bar');
     $('body').append($bottomBar);
@@ -42,9 +66,10 @@ Dependencies:
     function addNode() {
       window.GLOBAL.log("Creating a node...");
       nodeID++;
-      window['node' + nodeID] = new NetworkNode();
-      window.GLOBAL.log("Connecting it to a network");
-      window['node' + nodeID].connect(network);
+      var newNode = new NetworkNode();
+      window['node' + nodeID] = newNode;
+      newNode.connect(network);
+      $nodeGUI(newNode).appendTo($bottomBar);
     }
     
     var $addNodeButton = $('<button>');
@@ -62,7 +87,7 @@ Dependencies:
     $bottomBar.append($startPAXOSButton);
     $startPAXOSButton.text("Start PAXOS");
     $startPAXOSButton.click(function () {
-      if (nodeID > 0) {
+      if (network.numberOfNodes() > 0) {
         network.getLeader().startPAXOS(3); //TODO: Do not hardcode this value
       } else {
         GLOBAL.log("No leaders to start PAXOS!");

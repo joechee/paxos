@@ -24,6 +24,12 @@ var delay = true;
 })(window);
 
 (function (window) {
+
+  /* Settings */
+  var inactivityTimeout = 2000;
+
+
+
   var log = function (msg) {
     var name = this.id || this.name || "Unknown-object";
     console.log("[" + name + "] " + msg);
@@ -34,6 +40,8 @@ var delay = true;
 
   var NetworkNode = function (network) {
       var currentNode = this;
+      var backgroundNetworkTasks = [];
+
       
       /* Private variables */
       var maxProposal = 0;
@@ -101,9 +109,17 @@ var delay = true;
       };
       
       this.disconnect = function () {
-        if (this.network) {
-          network.removeNode(this);
-          this.log("Successfully disconnected from "+ network);
+        if (!this.network) {
+          this.log("Error: Not connected to any network!");
+        } else {
+          this.log("Disconnecting from " + this.network.id);
+          this.network.removeNode(this);
+          this.log("Successfully disconnected from "+ this.network.id);
+          this.network = undefined;
+          for (var i in backgroundNetworkTasks) {
+            var task = backgroundNetworkTasks[i];
+            clearInterval(task);
+          }
         }
       };
       
@@ -114,7 +130,7 @@ var delay = true;
         });
       };
       
-      setInterval(broadcastHeartbeat, 1000);
+      backgroundNetworkTasks.push(setInterval(broadcastHeartbeat, 1000));
       
       var visibleNodes = {};
       visibleNodes[this.id] = {
@@ -122,12 +138,13 @@ var delay = true;
       };  
       
       var cleanUpNodes = function () {
+
         var now = new Date();
         for (var i in visibleNodes) {
-          if (i == "log" || i == this.id) {
+          if (i === this.id) {
               continue;
-          } else if (now - visibleNodes[i].lastSeen > 5000) {
-              this.log(visibleNodes[i].node.id + " disconnected due to inactivity");
+          } else if (now - visibleNodes[i].lastSeen > inactivityTimeout) {
+              currentNode.log(visibleNodes[i].node.id + " disconnected due to inactivity");
               delete visibleNodes[i];
           }
         }
@@ -196,6 +213,7 @@ var delay = true;
         var proposeID = message['propose'];
         var opID = message['id'];
         var accept = function (node) {
+          this.log("Accepting ballot from " + from.id);
           this.message(node, {
             id: opID,
             cmd: 'acceptBallot',
@@ -229,6 +247,7 @@ var delay = true;
         var proposalValue = request['value'];
         var opID = request['id'];
         var accept = function (node) {
+          this.log("Accepting command from " + from.id);
           this.message(node, {
             cmd: 'acceptValue',
             proposal: proposalID,
@@ -339,7 +358,7 @@ var delay = true;
           }
         }
         if (accepts > 0) { // Majority
-          currentNode.log("Received Majority acceptance. Cleaning up Continuing to next phase");
+          currentNode.log("Received Majority acceptance. Cleaning up and continuing to next phase");
           /* cleanup code */
           acceptBallotReplies = {};
           /* end cleanup code */
@@ -418,7 +437,7 @@ var delay = true;
       
       
       
-      setInterval(cleanUpNodes, 1000);
+      backgroundNetworkTasks.push(setInterval(cleanUpNodes, 1000));
       
       
       
@@ -441,7 +460,7 @@ var delay = true;
   	  };
   	
   	  this.removeNode = function (node) {
-          delete node[node.id];
+          delete nodes[node.id];
   	  };
       
       this.broadcast = function (from, message) {
@@ -459,6 +478,14 @@ var delay = true;
               leader = nodes[i].getLeader();
           }
           return leader;
+      };
+
+      this.numberOfNodes = function () {
+        var result = 0;
+        for (var i in nodes) {
+          result++;
+        }
+        return result;
       };
       
       

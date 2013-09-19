@@ -83,17 +83,35 @@ Dependencies:
       network.startPAXOS(value);
     }
     
+    var modalOpen = false;
     var $startPAXOSButton = $('<button>');
     $bottomBar.append($startPAXOSButton);
     $startPAXOSButton.text("Start PAXOS");
     $startPAXOSButton.click(function () {
-      var val = prompt("What command do you wish to send?");
-      if (network.numberOfNodes() > 0) {
-        network.getLeader().startPAXOS(val); //TODO: Do not hardcode this value
-      } else {
-        GLOBAL.log("No leaders to start PAXOS!");
+      if ($('#promptModal').is(':not(visible)')) {
+        launchModal("What command do you wish to send?", function (command) {
+          if (network.numberOfNodes() > 0) {
+            network.getLeader().startPAXOS(command); //TODO: Do not hardcode this value
+          } else {
+            GLOBAL.log("No leaders to start PAXOS!");
+          }        
+        });        
       }
     });
+
+    function launchModal(msg, callback) {
+      $('#promptModal .text').text(msg);
+      $('#promptModal').modal('show');
+      $('#promptModal .text-input').val('');
+      $('#promptModal .text-input').focus();
+      $('#promptModal .callback').unbind('click');
+      $('#promptModal .callback').click(function () {
+        $('#promptModal').modal('hide');
+        callback($('#promptModal .text-input').val());
+      });
+
+
+    }
     
     
     

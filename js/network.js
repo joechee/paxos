@@ -88,10 +88,26 @@ var delay = true;
         if (network.register(this)) {
             this.network = network;
             this.log("Successfully connected to " + network.id);
+            this.sync(network);
+
         } else {
             this.log("Connection to " + network.id + " failed.");
         }
       };
+
+      this.sync = function (network) {
+        // TODO: Simulate proper syncing. Current syncing is just stuff
+
+        this.log("Syncing with currently connected nodes");
+        for (var i in network.nodes) {
+          var maxOplog = {};
+          if (JSONTools.getDictionarySize(network.nodes.oplog) > JSONTools.getDictionarySize(maxOplog)) {
+            maxOplog = network.nodes.oplog;
+          }
+        }
+        this.oplog = JSONTools.clone(maxOplog);
+        this.log("Sync complete");
+      }
       
       this.broadcast = function (network, message) {
         if (network) {
@@ -264,7 +280,7 @@ var delay = true;
         var reject = function (node) {
           this.message(node, {
             cmd: 'rejectBallot',
-            proposal: proposeId,
+            proposal: proposeID,
             maxProposal: maxProposal,
             value: promisedValue
           });

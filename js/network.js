@@ -51,7 +51,7 @@ var delay = true;
       this.getMaxOpID = function () {
         var max = 0;
         for (var i in this.oplog) {
-          (i > max) ? max = i : max = max;
+          (i > max) ? (max = i) : (max = max);
         }
         return max;
       };
@@ -204,7 +204,7 @@ var delay = true;
       this.oplog = {};
       
       this.startPAXOS = function (v) {
-        value = value || v;
+        value = v;
         if (!this.isLeader()) {
           this.log("Error: Trying to start PAXOS when it is not the leader");
         } else if (PAXOSState == 'preparePhase') {
@@ -224,7 +224,7 @@ var delay = true;
 
       var startPreparePhase = function () {
 
-        var opID = this.getMaxOpID() + 1;
+        var opID = parseInt(this.getMaxOpID(), 10) + 1;
 
         currentOpID = opID;
         

@@ -107,7 +107,11 @@ Dependencies:
       $('#promptModal .callback').unbind('click');
       $('#promptModal .callback').click(function () {
         $('#promptModal').modal('hide');
-        callback($('#promptModal .text-input').val());
+        var val = $('#promptModal .text-input').val();
+        if (!val) {
+          val = guid();
+        }
+        callback(val);
       });
 
 

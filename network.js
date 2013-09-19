@@ -130,7 +130,7 @@ var delay = true;
         });
       };
       
-      backgroundNetworkTasks.push(setInterval(broadcastHeartbeat, 1000));
+      backgroundNetworkTasks.push(setInterval(broadcastHeartbeat, 200));
       
       var visibleNodes = {};
       visibleNodes[this.id] = {
@@ -175,7 +175,11 @@ var delay = true;
       */
       
       var PAXOSState = 'notStarted';
+
+      // Propose phase variables
       var acceptBallotReplies = {};
+
+      // Acceptance phase variables
       var acceptValueReplies = {};
       var value = 0;
       var promisedValue = undefined;
@@ -207,6 +211,10 @@ var delay = true;
           propose: maxProposal
         });
         PAXOSState = 'preparePhase';
+
+        // Accept your own ballot!
+        acceptBallotReplies[this.id] = true;
+        checkProposePhaseCompleted();
       };
       
       this.processPrepare = function (from, message) {
@@ -362,13 +370,8 @@ var delay = true;
           /* cleanup code */
           acceptBallotReplies = {};
           /* end cleanup code */
-          currentNode.log("Sending Acceptance Requests...");
-          currentNode.broadcast(currentNode.network, {
-            id: currentOpID,
-            proposal: maxProposal,
-            cmd: "requestAcceptance",
-            value: value
-          });
+          startAcceptancePhase();
+
         }
         
         var rejects = 0;
@@ -388,6 +391,22 @@ var delay = true;
           currentNode.log("PAXOS attempt failed.");
           // TODO: Restart PAXOS?
         }
+      };
+
+      var startAcceptancePhase = function () {
+        currentNode.log("Sending Acceptance Requests...");
+        currentNode.broadcast(currentNode.network, {
+          id: currentOpID,
+          proposal: maxProposal,
+          cmd: "requestAcceptance",
+          value: value
+        });
+
+
+        // Accept your own value!
+        
+        acceptValueReplies[currentNode.id] = true;
+        checkAcceptancePhaseCompleted();
       };
       
       

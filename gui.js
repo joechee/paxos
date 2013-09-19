@@ -87,8 +87,9 @@ Dependencies:
     $bottomBar.append($startPAXOSButton);
     $startPAXOSButton.text("Start PAXOS");
     $startPAXOSButton.click(function () {
+      var val = prompt("What command do you wish to send?");
       if (network.numberOfNodes() > 0) {
-        network.getLeader().startPAXOS(3); //TODO: Do not hardcode this value
+        network.getLeader().startPAXOS(val); //TODO: Do not hardcode this value
       } else {
         GLOBAL.log("No leaders to start PAXOS!");
       }

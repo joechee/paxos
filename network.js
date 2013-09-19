@@ -198,24 +198,54 @@ var delay = true;
           this.log("Starting PAXOS");
         }
 
+
+
+        startPreparePhase.call(this);
+        
+
+
+      };
+
+      var startPreparePhase = function () {
+
         var opID = this.getMaxOpID() + 1;
 
         currentOpID = opID;
         
         maxProposal++; // Increase the max proposal seen
         acceptBallotReplies = {};
-        
+
+        PAXOSState = 'preparePhase';
+
         this.broadcast(this.network, {
           id: opID, 
-          cmd: 'startPAXOS',
+          cmd: 'startPreparePhase',
           propose: maxProposal
         });
-        PAXOSState = 'preparePhase';
 
         // Accept your own ballot!
         acceptBallotReplies[this.id] = true;
         checkProposePhaseCompleted();
       };
+
+
+
+      var startAcceptancePhase = function () {
+        currentNode.log("Sending Acceptance Requests...");
+        currentNode.broadcast(currentNode.network, {
+          id: currentOpID,
+          proposal: maxProposal,
+          cmd: "requestAcceptance",
+          value: value
+        });
+
+
+        // Accept your own value!
+        
+        acceptValueReplies[currentNode.id] = true;
+        checkAcceptancePhaseCompleted();
+      };
+      
       
       this.processPrepare = function (from, message) {
         var proposeID = message['propose'];
@@ -303,7 +333,7 @@ var delay = true;
             case "heartbeat":
               to.processHeartbeat(from, message);
               break;
-            case "startPAXOS":
+            case "startPreparePhase":
               if (to.getLeader() !== from) {
                 // TODO: Add code that allows multiple leaders
                 from.log("ERROR: PAXOS was started from someone who wasn't a leader");
@@ -393,22 +423,7 @@ var delay = true;
         }
       };
 
-      var startAcceptancePhase = function () {
-        currentNode.log("Sending Acceptance Requests...");
-        currentNode.broadcast(currentNode.network, {
-          id: currentOpID,
-          proposal: maxProposal,
-          cmd: "requestAcceptance",
-          value: value
-        });
 
-
-        // Accept your own value!
-        
-        acceptValueReplies[currentNode.id] = true;
-        checkAcceptancePhaseCompleted();
-      };
-      
       
       var checkAcceptancePhaseCompleted = function () {
         var accepts = 0; // accepts should be positive after this function ends to ensure majority

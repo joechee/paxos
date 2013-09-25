@@ -78,12 +78,36 @@ Dependencies:
     $addNodeButton.text("Add Node");
     $addNodeButton.click(addNode);
     
+    // Adding a specific node
+    function addSpecificNode(defaultID) {
+      window.GLOBAL.log("Creating a specific node...");
+      nodeID++;
+      var newNode = new NetworkNode(undefined, defaultID);
+      window['node' + nodeID] = newNode;
+      newNode.connect(network);
+      $nodeGUI(newNode).appendTo($bottomBar);
+    }
+
+    function promptNodeName() {
+      if ($('#promptModal').is(':not(visible)')) {
+        launchModal("What do you wish to set as the node id?", function (id) {
+          addSpecificNode(id);
+        });        
+      }
+    }
     
+    var $addSpecificNodeButton = $('<button>');
+    
+    $bottomBar.append($addSpecificNodeButton);
+    $addSpecificNodeButton.text("Add Specific Node");
+    $addSpecificNodeButton.click(promptNodeName);
+    
+
+    // PAXOS GUI Code
     function startPAXOS(value) {
       network.startPAXOS(value);
     }
     
-    var modalOpen = false;
     var $startPAXOSButton = $('<button>');
     $bottomBar.append($startPAXOSButton);
     $startPAXOSButton.text("Start PAXOS");

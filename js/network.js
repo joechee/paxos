@@ -56,7 +56,7 @@ var delay = true;
         return max;
       };
       
-      if (defaultId) {
+      if (defaultID) {
         this.id = "node-" + defaultID;
       } else {
         this.id = "node-" + guid();
@@ -99,10 +99,11 @@ var delay = true;
         // TODO: Simulate proper syncing. Current syncing is just stuff
 
         this.log("Syncing with currently connected nodes");
-        for (var i in network.nodes) {
-          var maxOplog = {};
-          if (JSONTools.getDictionarySize(network.nodes.oplog) > JSONTools.getDictionarySize(maxOplog)) {
-            maxOplog = network.nodes.oplog;
+        var nodes = network.getNodes();
+        var maxOplog = {};
+        for (var i in nodes) {
+          if (JSONTools.getDictionarySize(nodes[i].oplog) > JSONTools.getDictionarySize(maxOplog)) {
+            maxOplog = nodes[i].oplog;
           }
         }
         this.oplog = JSONTools.clone(maxOplog);
@@ -537,7 +538,10 @@ var delay = true;
         }
         return result;
       };
-      
+
+      this.getNodes = function () {
+        return nodes;
+      };
       
       setInterval(function () {
         for (var i in currentNetwork.channel) {

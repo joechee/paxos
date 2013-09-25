@@ -51,7 +51,7 @@ var delay = true;
       this.getMaxOpID = function () {
         var max = 0;
         for (var i in this.oplog) {
-          (i > max) ? (max = i) : (max = max);
+          (parseInt(i, 10) > parseInt(max)) ? (max = parseInt(i, 10)) : (max = parseInt(max, 10));
         }
         return max;
       };
@@ -305,6 +305,7 @@ var delay = true;
           this.log("Accepting command from " + from.id);
           this.message(node, {
             cmd: 'acceptValue',
+            id: opID,
             proposal: proposalID,
             value: proposalValue
           });
@@ -393,12 +394,16 @@ var delay = true;
               currentNode.processAcceptanceRequest(from, message);
               break;
             case "acceptValue":
-              acceptValueReplies[from.id] = true;
-              checkAcceptancePhaseCompleted();
+              if (currentOpID === message['id']) {
+                acceptValueReplies[from.id] = true;
+                checkAcceptancePhaseCompleted();
+              }
               break;
             case "rejectValue":
-              acceptValueReplies[from.id] = false;
-              checkAcceptancePhaseCompleted();
+              if (currentOpID === message['id']) {
+                acceptValueReplies[from.id] = false;
+                checkAcceptancePhaseCompleted();
+              }
               break;
         }
       };

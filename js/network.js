@@ -354,7 +354,7 @@ var delay = true;
             case "startPreparePhase":
               if (to.getLeader() !== from) {
                 // TODO: Add code that allows multiple leaders
-                from.log("ERROR: PAXOS was started from someone who wasn't a leader");
+                to.log("ERROR: PAXOS was started from someone who wasn't a leader");
               } else {
                 currentNode.processPrepare(from, message);
               }

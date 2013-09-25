@@ -38,7 +38,7 @@ var delay = true;
   var LoggableObject = function () {};
   LoggableObject.prototype.log = log;
 
-  var NetworkNode = function (network) {
+  var NetworkNode = function (network, defaultID) {
       var currentNode = this;
       var backgroundNetworkTasks = [];
 
@@ -56,14 +56,14 @@ var delay = true;
         return max;
       };
       
-      
-      
-      
-      this.id = "node" + guid(); //TODO: Insert GUID function
+      if (defaultId) {
+        this.id = "node-" + defaultID;
+      } else {
+        this.id = "node-" + guid();
+      }
       this.network = network;
       this.type = "node";
       this.message = function (node, message) {
-        // TODO: Implement FIFO Channel
         if (!node) {
           this.log("I'm messaging no one!");
           return;

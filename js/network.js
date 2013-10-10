@@ -38,6 +38,27 @@ var delay = true;
   var LoggableObject = function () {};
   LoggableObject.prototype.log = log;
 
+
+  /* Proposal ID Object */
+  var ProposalID = function (proposalID, nodeID) {
+    this.getProposalID = function () {
+      return proposalID;
+    };
+    this.getNodeID = function () {
+      return nodeID;
+    };
+    this.greaterThan = function (proposalID) {
+      if (proposalID instanceof ProposalID) {
+        if (this.getProposalID() === proposalID.getProposalID()) {
+          return this.getNodeID() > proposalID.getNodeID();
+        } else {
+          return this.getProposalID() > proposalID.getProposalID();
+        }
+      }
+    };
+  };
+  
+
   var NetworkNode = function (network, defaultID) {
       var currentNode = this;
       var backgroundNetworkTasks = [];
@@ -183,7 +204,7 @@ var delay = true;
       
       this.isLeader = function () {
         return this.getLeader() === this;
-      }
+      };
       
       
       

@@ -63,19 +63,8 @@ var delay = true;
       var currentNode = this;
       var backgroundNetworkTasks = [];
 
-      
-      /* Private variables */
-      var maxProposal = 0;
 
-      
-
-      this.getMaxOpID = function () {
-        var max = 0;
-        for (var i in this.oplog) {
-          (parseInt(i, 10) > parseInt(max)) ? (max = parseInt(i, 10)) : (max = parseInt(max, 10));
-        }
-        return max;
-      };
+    
       
       if (defaultID) {
         this.id = "node-" + defaultID;
@@ -109,27 +98,11 @@ var delay = true;
         if (network.register(this)) {
             this.network = network;
             this.log("Successfully connected to " + network.id);
-            this.sync(network);
 
         } else {
             this.log("Connection to " + network.id + " failed.");
         }
       };
-
-      this.sync = function (network) {
-        // TODO: Simulate proper syncing. Current syncing is just stuff
-
-        this.log("Syncing with currently connected nodes");
-        var nodes = network.getNodes();
-        var maxOplog = {};
-        for (var i in nodes) {
-          if (JSONTools.getDictionarySize(nodes[i].oplog) > JSONTools.getDictionarySize(maxOplog)) {
-            maxOplog = nodes[i].oplog;
-          }
-        }
-        this.oplog = JSONTools.clone(maxOplog);
-        this.log("Sync complete");
-      }
       
       this.broadcast = function (network, message) {
         if (network) {
@@ -211,155 +184,18 @@ var delay = true;
       /*
         PAXOS variables
       */
-      
-      var PAXOSState = 'notStarted';
 
-      // Propose phase variables
-      var acceptBallotReplies = {};
-
-      // Acceptance phase variables
-      var acceptValueReplies = {};
+      var slot = 0;
+      var ballot = 0;
       var value = 0;
-      var promisedValue = undefined;
 
-      var currentOpID = undefined;
-      this.oplog = {};
-      
-      this.startPAXOS = function (v) {
-        value = v;
-        if (!this.isLeader()) {
-          this.log("Error: Trying to start PAXOS when it is not the leader");
-        } else if (PAXOSState == 'preparePhase') {
-          this.log("Error: Starting PAXOS twice is currently still not supported");
-          return;
-        } else {
-          this.log("Starting PAXOS");
-        }
-
-
-
-        startPreparePhase.call(this);
-        
-
-
-      };
-
-      var startPreparePhase = function () {
-
-        var opID = parseInt(this.getMaxOpID(), 10) + 1;
-
-        currentOpID = opID;
-        
-        maxProposal++; // Increase the max proposal seen
-        acceptBallotReplies = {};
-
-        PAXOSState = 'preparePhase';
-
+      this.startPAXOS = function (value) {
+        this.log("Starting from SCRATCH. Plz accept my ballot");
         this.broadcast(this.network, {
-          id: opID, 
-          cmd: 'startPreparePhase',
-          propose: maxProposal
+          slot: slot,
+          ballot: ballot,
+          type: "prepare" 
         });
-
-        // Accept your own ballot!
-        acceptBallotReplies[this.id] = true;
-        checkProposePhaseCompleted();
-      };
-
-
-
-      var startAcceptancePhase = function () {
-        currentNode.log("Sending Acceptance Requests...");
-        currentNode.broadcast(currentNode.network, {
-          id: currentOpID,
-          proposal: maxProposal,
-          cmd: "requestAcceptance",
-          value: value
-        });
-
-
-        // Accept your own value!
-        
-        acceptValueReplies[currentNode.id] = true;
-        checkAcceptancePhaseCompleted();
-      };
-      
-      
-      this.processPrepare = function (from, message) {
-        var proposeID = message['propose'];
-        var opID = message['id'];
-        var accept = function (node) {
-          this.log("Accepting ballot from " + from.id);
-          this.message(node, {
-            id: opID,
-            cmd: 'acceptBallot',
-            proposal: proposeID
-          });
-          maxProposal = proposeID;
-          currentOpID = message['id'];
-        };
-        
-        var reject = function (node) {
-          this.message(node, {
-            cmd: 'rejectBallot',
-            proposal: proposeID,
-            maxProposal: maxProposal,
-            value: promisedValue
-          });
-        };
-        
-        if (this.getLeader() == this) {
-          this.log("I am the leader? Why is " + from.name +" proposing? I will REJECT your proposal");
-          reject.call(this, from);
-        } else if (proposeID < maxProposal) {  
-          reject.call(this, from);
-        } else { 
-          accept.call(this, from);
-        }
-      };
-      
-      this.processAcceptanceRequest = function(from, request) {
-        var proposalID = request['proposal'];
-        var proposalValue = request['value'];
-        var opID = request['id'];
-        var accept = function (node) {
-          this.log("Accepting command from " + from.id);
-          this.message(node, {
-            cmd: 'acceptValue',
-            id: opID,
-            proposal: proposalID,
-            value: proposalValue
-          });
-
-          this.oplog[opID] = {
-            id: opID,
-            proposal: proposalID,
-            value: proposalValue
-          };
-
-          currentOpID = undefined; //reset currentOpID so as to wait for new requests.
-        };
-        var reject = function (node) {
-          this.message(node, {
-            cmd: 'rejectValue',
-            proposal: proposalID,
-            value: proposalValue
-          });
-        };
-
-        if (this.oplog[opID] && this.oplog[opID]['proposal'] === proposalID && this.oplog[opID]['value'] === proposalValue) {
-          accept.call(this, from); // Accept if there was a previous operation
-        } else if (this.getLeader() == this) {
-          this.log("I am the leader? Why is " + from.name +" proposing? I will REJECT the proposal");
-          reject.call(this, from);
-        } else if (proposalID < maxProposal) {  
-          reject.call(this, from);
-        } else if (promisedValue && promisedValue != proposalValue) {
-          reject.call(this, from);
-        } else { // >= in this case equality is included because we want to re-accept the proposal if somehow the message was dropped
-          accept.call(this, from);
-        }
-        
       };
       
       
@@ -369,145 +205,7 @@ var delay = true;
       
       var dispatchMessage = function (from, message, to) {
         switch (message['cmd']) {
-            case "heartbeat":
-              to.processHeartbeat(from, message);
-              break;
-            case "startPreparePhase":
-              if (to.getLeader() !== from) {
-                // TODO: Add code that allows multiple leaders
-                to.log("ERROR: PAXOS was started from someone who wasn't a leader");
-              } else {
-                currentNode.processPrepare(from, message);
-              }
-              break;
-            case "acceptBallot":
-               if (currentOpID !== message['id']) {
-                currentNode.log("Received Ballot Acceptance for a stale Op ID!");
-                return;
-              } else if (PAXOSState != 'preparePhase') {
-                currentNode.log("Received Proposal Acceptance when PAXOS not started!");
-              } else {
-                acceptBallotReplies[from.id] = true;
-              }
-              checkProposePhaseCompleted();
-              break;
-            case "rejectBallot":
-              if (currentOpID !== message['id']) {
-                currentNode.log("Received Ballot Rejection for a stale Op ID!");
-                return;
-              }
-              acceptBallotReplies[from.id] = false;
-              checkProposePhaseCompleted();
-              break;
-            case "requestAcceptance":
-              var opID = message['id'];
-              if (currentNode.oplog[opID]) {
-                currentNode.log("Received Acceptance Request for an op that is already completed. Returning results.");
-                currentNode.message(from, {
-                  id: opID,
-                  proposal: currentNode.oplog[opID]['proposal'],
-                  value: currentNode.oplog[opID]['value']
-                });
-              } else if (currentOpID !== message['id']) {
-                currentNode.log("Received Acceptance Request for an unknown Op ID!");
-                return;
-              }
-              currentNode.processAcceptanceRequest(from, message);
-              break;
-            case "acceptValue":
-              if (currentOpID === message['id']) {
-                acceptValueReplies[from.id] = true;
-                checkAcceptancePhaseCompleted();
-              }
-              break;
-            case "rejectValue":
-              if (currentOpID === message['id']) {
-                acceptValueReplies[from.id] = false;
-                checkAcceptancePhaseCompleted();
-              }
-              break;
-        }
-      };
-      
-      var checkProposePhaseCompleted = function () {
-        var accepts = 0; // accepts should be positive after this function ends to ensure majority
-        for (var i in visibleNodes) {
-          if (acceptBallotReplies[i] === true) {
-            accepts++;
-          } else {
-            accepts--;
-          }
-        }
-        if (accepts > 0) { // Majority
-          currentNode.log("Received Majority acceptance. Cleaning up and continuing to next phase");
-          /* cleanup code */
-          acceptBallotReplies = {};
-          /* end cleanup code */
-          startAcceptancePhase();
 
-        }
-        
-        var rejects = 0;
-        for (var i in visibleNodes) {
-          if (acceptBallotReplies[i] === false) {
-            rejects++;
-          } else {
-            rejects--;
-          }
-        }
-        
-        if (rejects > 0) {
-          /* cleanup code */
-          acceptBallotReplies = {};
-          /* end cleanup code */
-          PAXOSState = 'notStarted';
-          currentNode.log("PAXOS attempt failed.");
-          // TODO: Restart PAXOS?
-        }
-      };
-
-
-      
-      var checkAcceptancePhaseCompleted = function () {
-        var accepts = 0; // accepts should be positive after this function ends to ensure majority
-        for (var i in visibleNodes) {
-          if (acceptValueReplies[i] === true) {
-            accepts++;
-          } else {
-            accepts--;
-          }
-        }
-        if (accepts > 0) { // Majority
-          currentNode.log("Received Majority acceptance. Agreed on " + value);
-          /* cleanup code */
-          currentNode.oplog[currentOpID] = {
-            id: currentOpID,
-            proposal: maxProposal,
-            value: value
-          };
-          value = undefined;
-          currentOpID = undefined;
-          PAXOSState = 'notStarted';
-          acceptValueReplies = {};
-
-          /* end cleanup code */
-        }
-        
-        var rejects = 0;
-        for (var i in visibleNodes) {
-          if (acceptValueReplies[i] === false) {
-            rejects++;
-          } else {
-            rejects--;
-          }
-        }
-        
-        if (rejects > 0) {
-          /* cleanup code */
-          acceptValueReplies = {};
-          /* end cleanup code */
-          PAXOSState = 'notStarted';
-          currentNode.log("PAXOS attempt failed.");
         }
       };
       

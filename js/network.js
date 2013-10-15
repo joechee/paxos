@@ -281,7 +281,11 @@ var delay = true;
         } else {
           return slots[slot];
         }
-      }
+      };
+
+      this.setState = function (slot, state) {
+        slots[slot] = state;
+      };
 
     };
 
@@ -449,7 +453,7 @@ var delay = true;
         }
       }
 
-      if (accepts > 0) {
+      if (accepts >= 0) {
         currentNode.log("Received majority votes. Moving on to accept phase");
         // Start Acceptance Phase
 
@@ -558,7 +562,7 @@ var delay = true;
         }
       }
 
-      if (accepts > 0) {
+      if (accepts >= 0) {
         currentNode.log("Received majority votes. Moving on to Acknowledge phase");
         startAcknowledgePhase(state);
         return;
@@ -632,11 +636,15 @@ var delay = true;
         leader.setState(message.slot, currentState);
       } 
 
+      var value = currentState.value;
+
       currentState.ballot = message.ballot;
       currentState.value = message.value;
       currentState.slot = message.slot;
       currentState.phase = "completed";
       currentNode.log("Slot " + currentState.slot + " has already been completed!");
+
+      currentNode.startPAXOS(currentState.value);
     };
 
 
@@ -707,7 +715,11 @@ var delay = true;
         for (var i in currentNetwork.channel) {
           
           var packet = currentNetwork.channel[i];
-          packet['to'].receiveMessage(packet['from'], packet['message']);
+          try {
+            packet['to'].receiveMessage(packet['from'], packet['message']);
+          } catch (e) {
+            console.log(e);
+          }
         }
         currentNetwork.channel.length = 0;
       }, 100)

@@ -66,7 +66,7 @@ Dependencies:
     function addNode() {
       window.GLOBAL.log("Creating a node...");
       nodeID++;
-      var newNode = new NetworkNode();
+      var newNode = new PAXOSNode();
       window['node' + nodeID] = newNode;
       newNode.connect(network);
       $nodeGUI(newNode).appendTo($bottomBar);
@@ -82,7 +82,7 @@ Dependencies:
     function addSpecificNode(defaultID) {
       window.GLOBAL.log("Creating a specific node...");
       nodeID++;
-      var newNode = new NetworkNode(undefined, defaultID);
+      var newNode = new PAXOSNode(undefined, defaultID);
       window['node' + nodeID] = newNode;
       newNode.connect(network);
       $nodeGUI(newNode).appendTo($bottomBar);

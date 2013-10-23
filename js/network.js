@@ -1,6 +1,3 @@
-var delay = true;
-
-
 (function (window) {
 
 
@@ -92,15 +89,17 @@ var delay = true;
           this.log("I'm messaging no one!");
           return;
         };
-        if (delay) {
-            setTimeout(function () {
-                currentNode.network.channel.push({
-                  from: currentNode,
-                  message: message,
-                  to: node
-                });
-            }, 1);
+        if (message.type === "prepareReply") {
+          console.log("yey");
         }
+        setTimeout(function () {
+            currentNode.network.channel.push({
+              from: currentNode,
+              message: message,
+              to: node
+            });
+
+        }, 1);
       };
       
       this.receiveMessage = function (from, message) {
@@ -342,15 +341,16 @@ var delay = true;
 
     currentNode.startPAXOS = function (value) {
       var state = leader.getNewSlotState();   
-      currentNode.log("Preparing ballot");
 
       state.ballot = new BallotID(currentNode.id, 1);
       state.value = value;
 
-      if (firstTime) {      
+      if (firstTime) {
+        currentNode.log("Preparing ballot");
         startPreparePhase(state);
       } else {
         firstTime = false;
+        currentNode.log("Already recognised as leader. Moving straight to Acceptance Phase");
         startAcceptancePhase(state);
       }
     };
@@ -405,6 +405,7 @@ var delay = true;
           'maxBallot': currentState.ballot
         });
       } else {
+        console.log("SENT OUT ACCEPTANCE");
         currentState.ballot = message.ballot;
         currentNode.message(from, {
           'slot': currentState.slot,
@@ -417,6 +418,7 @@ var delay = true;
     };
 
     var handlePrepareReplyMessage = function(from, message) {
+      console.log("RESFLDSF");
       var state = leader.getState(message.slot);
       if (!state) {
         currentNode.log("Received a reply for a slot that does not exist!");
@@ -713,16 +715,11 @@ var delay = true;
       
       setInterval(function () {
         for (var i in currentNetwork.channel) {
-          
           var packet = currentNetwork.channel[i];
-          try {
-            packet['to'].receiveMessage(packet['from'], packet['message']);
-          } catch (e) {
-            console.log(e);
-          }
+          packet['to'].receiveMessage(packet['from'], packet['message']);
         }
         currentNetwork.channel.length = 0;
-      }, 100)
+      }, 100);
 
   };
 
